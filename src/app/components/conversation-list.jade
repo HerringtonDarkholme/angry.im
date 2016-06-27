@@ -1,0 +1,6 @@
+h1 Conversation List
+ul
+  li(*ngFor="let convId of keys()")
+    a([routerLink]="['Messages', {id: convId}]")
+      img([src]="convs[convId].thumbnailSrc")
+      |{{convs[convId].title}}
