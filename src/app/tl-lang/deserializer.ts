@@ -159,7 +159,7 @@ export class Deserializer {
     }
     let itemType = type.substr(7, type.length - 8)
     for (let i = 0; i < length; i++) {
-      result.push(this.getObject(type, schema))
+      result.push(this.getObject(itemType, schema))
     }
     return [true, result]
   }
@@ -167,13 +167,12 @@ export class Deserializer {
 
   private _findConstructor(type: string, schema: Schema) {
     let constructorData: ConstructorData
-    let initial = type.charAt(0)
-    if (initial === '%') {
+    if (type.charAt(0) === '%') {
       // explicit bare type
       let checkType = type.substr(1)
       constructorData = _findCtorByPredicate(checkType, schema)
-    } else if (initial.toLowerCase() === initial) {
-      // primitive type
+    } else if (!isPrimitive(type)) {
+      // primitive type like int128
       constructorData = _findCtorByPredicate(type, schema)
     } else {
       let constructor = this.getInt()
@@ -255,4 +254,10 @@ function _findCtorByPredicate(type: string, schema: Schema) {
       }
     }
     throw new Error('Cannot find constructorData for predicate: ' + type)
+}
+
+function isPrimitive(typeName: string) {
+    //typeName example: auth.ResPQ
+    typeName = typeName.slice(typeName.lastIndexOf('.') + 1);
+    return typeName.charAt(0) === typeName.charAt(0).toUpperCase();
 }

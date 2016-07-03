@@ -61,4 +61,40 @@ describe('deserializer', () => {
       expect(s).toBe('上海、蓬莱、フランス、オランダ、チベット、京都、ロンドン、ロシア、オルレアン')
   })
 
+  let schema = {
+    "constructors": [{
+      "id": "85337187",
+      "predicate": "auth.resPQ",
+      "params": [{
+        "name": "nonce",
+        "type": "int128"
+      }, {
+        "name": "server_nonce",
+        "type": "int128"
+      }, {
+        "name": "pq",
+        "type": "bytes"
+      }, {
+        "name": "server_public_key_fingerprints",
+        "type": "Vector<long>"
+      }],
+      "type": "auth.ResPQ"
+    }],
+    "methods": [{
+      "id": "1615239032",
+      "method": "auth.req_pq",
+      "params": [{
+        "name": "nonce",
+        "type": "int128"
+      }],
+      "type": "auth.ResPQ"
+    }]
+  }
+
+  it('should get object', () => {
+    let bytes = hexToBytes('632416053E0549828CCA27E966B301A48FECE2FCA5CF4D33F4A11EA877BA4AA5739073300817ED48941A08F98100000015C4B51C01000000216BE86C022BB4C3')
+    let d = new Deserializer(bytes)
+    let obj = d.getObject('auth.ResPQ', schema)
+  })
+
 })
