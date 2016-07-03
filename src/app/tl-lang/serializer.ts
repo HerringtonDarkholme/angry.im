@@ -1,5 +1,6 @@
 import {Injectable} from '@angular/core'
 import {hexToBytes} from '../crypto'
+import {Schema, MethodData, ConstructorData} from './types'
 
 const SUCCESS = true
 const BASE_TYPES = {
@@ -13,6 +14,7 @@ const BASE_TYPES = {
   'double' : 'putDouble',
   'Bool'   : 'putBool',
 }
+type InnerData = MethodData | ConstructorData
 
 @Injectable()
 export class Serializer {
@@ -152,7 +154,7 @@ export class Serializer {
     return false
   }
 
-  private _tryPutVector(objs: any[], type: string, schema): boolean {
+  private _tryPutVector(objs: any[], type: string, schema: Schema): boolean {
     let vectorName = type.substr(0, 6)
     if (vectorName.toLowerCase() !== 'vector') {
       return false
@@ -172,13 +174,14 @@ export class Serializer {
   }
 
   // put each obj in constructorData/methodData
-  private _putInner(obj: any, innerData: any, schema) {
+  private _putInner(obj: any, innerData: InnerData, schema: Schema) {
     for (let param of innerData.params) {
       let paramType = param.type
       if (paramType.indexOf('?') !== -1) {
         // conditional fields (e.g. flags.2?MessageFwdHeader)
         let condType = paramType.split('?')
-        let [field, bit] = condType[0].split('.')
+        let [field, bitStr] = condType[0].split('.')
+        let bit = +bitStr
         if (!(obj[field] & (1 << bit))) {
           continue
         }
@@ -189,7 +192,7 @@ export class Serializer {
     }
   }
 
-  putObject(obj: any, type: string, schema) {
+  putObject(obj: any, type: string, schema: Schema) {
     if (this._tryPutBase(obj, type) === SUCCESS) {
       return
     }
@@ -197,7 +200,7 @@ export class Serializer {
       return
     }
     let predicate = obj['_']
-    let constructorData: any
+    let constructorData: ConstructorData
     // find constructorData
     for (let ctorData of schema.constructors) {
       if (ctorData.predicate === predicate) {
@@ -211,6 +214,7 @@ export class Serializer {
     if (isBare) {
       type = type.substr(1)
     }
+    // primitive type
     if (predicate === type) {
       isBare = true
     }
@@ -221,8 +225,8 @@ export class Serializer {
     this._putInner(obj, constructorData, schema)
   }
 
-  putMethod(method: string, params: any, schema: any) {
-    let methodData: any
+  putMethod(method: string, params: any, schema: Schema) {
+    let methodData: MethodData
     for (let md of schema.methods) {
       if (md.method === method) {
         methodData = md
@@ -234,10 +238,10 @@ export class Serializer {
   }
 }
 
-function intToUint (val) {
-  val = parseInt(val);
-  if (val < 0) {
-    val = val + 4294967296;
+function intToUint (val: string): number {
+  let num = parseInt(val, 10)
+  if (num < 0) {
+    num = num + 4294967296
   }
-  return val;
+  return num
 }

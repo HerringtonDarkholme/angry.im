@@ -1,5 +1,6 @@
 import {Injectable} from '@angular/core'
 import {bytesToHex} from '../crypto'
+import {Schema, MethodData, ConstructorData} from './types'
 
 const SUCCESS = true
 export const BASE_TYPES = {
@@ -13,6 +14,8 @@ export const BASE_TYPES = {
   'double' : 'getDouble',
   'Bool'   : 'getBool',
 }
+
+type InnerData = MethodData | ConstructorData
 
 @Injectable()
 export class Deserializer {
@@ -129,7 +132,7 @@ export class Deserializer {
     return [false, undefined]
   }
 
-  private _tryGetVector(type: string, schema): [boolean, any] {
+  private _tryGetVector(type: string, schema: Schema): [boolean, any] {
     let vectorName = type.substr(0, 6)
     if (vectorName.toLowerCase() !== 'vector') {
       return [false, undefined]
@@ -161,7 +164,69 @@ export class Deserializer {
     return [true, result]
   }
 
-  getObject(type: string, schema) {
+
+  private _findConstructor(type: string, schema: Schema) {
+    let constructorData: ConstructorData
+    let initial = type.charAt(0)
+    if (initial === '%') {
+      // explicit bare type
+      let checkType = type.substr(1)
+      constructorData = _findCtorByPredicate(checkType, schema)
+    } else if (initial.toLowerCase() === initial) {
+      // primitive type
+      constructorData = _findCtorByPredicate(type, schema)
+    } else {
+      let constructor = this.getInt()
+      let constructorCmp = uintToInt(constructor)
+      if (constructorCmp === 0x3072cfa1) {
+        throw new TypeError('unsupported for now')
+        // let compressed = this.getBytes()
+        // let uncompressed = gzipUncompress(compressed)
+        // let newDeserializer = new Deserializer(uncompressed)
+        // return newDeserializer.getObject(type, field);
+      }
+      for (let ctor of schema.constructors) {
+        if (ctor.id === '' + constructorCmp) {
+          constructorData = ctor
+        }
+      }
+      if (!constructorData) {
+        throw new Error('Constructor not found: ' + constructor + ' ' + this.getInt() + ' ' + this.getInt())
+      }
+    }
+    return constructorData
+  }
+
+  private _buildResult(constructorData: ConstructorData, schema: Schema) {
+    let result: any = {
+      _: constructorData.predicate
+    }
+    for (let param of constructorData.params) {
+      let paramType = param.type
+      if (paramType === '#' && result.pFlags === undefined) {
+        result.pFlags = {}
+      }
+      let isCond = paramType.indexOf('?') !== -1
+      if (isCond) {
+        let condType = paramType.split('?')
+        let [field, bitStr] = condType[0].split('.')
+        let bit = +bitStr
+        if (!(result[field] & (1 << bit))) {
+          continue
+        }
+        paramType = condType[1]
+      }
+      let value = this.getObject(paramType, schema)
+      if (isCond && paramType === 'true') {
+        result.pFlags[param.name] = value
+      } else {
+        result[param.name] = value
+      }
+    }
+    return result
+  }
+
+  getObject(type: string, schema: Schema) {
     let [success, ret] = this._tryGetBase(type)
     if (success) {
       return ret
@@ -170,8 +235,9 @@ export class Deserializer {
     if (success) {
       return ret
     }
-    // todo
-    throw new Error('TODO')
+    let constructorData = this._findConstructor(type, schema)
+
+    return this._buildResult(constructorData, schema)
   }
 }
 
@@ -180,4 +246,13 @@ function uintToInt(val) {
     val = val - 4294967296
   }
   return val
+}
+
+function _findCtorByPredicate(type: string, schema: Schema) {
+    for (let ctorData of schema.constructors) {
+      if (type === ctorData.predicate) {
+        return ctorData
+      }
+    }
+    throw new Error('Cannot find constructorData for predicate: ' + type)
 }
