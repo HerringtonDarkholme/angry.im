@@ -1,6 +1,9 @@
 import {Injectable} from '@angular/core'
 import {hexToBytes} from '../crypto'
-import {Schema, MethodData, ConstructorData} from './types'
+import {
+  Schema, MethodData, ConstructorData,
+  VECTOR_CTOR, TRUE_CTOR, FALSE_CTOR
+} from './types'
 
 const SUCCESS = true
 const BASE_TYPES = {
@@ -139,9 +142,9 @@ export class Serializer {
 
   putBool(bool: boolean) {
     if (bool) {
-      this.putInt(0x997275b5)
+      this.putInt(TRUE_CTOR)
     } else {
-      this.putInt(0xbc799737)
+      this.putInt(FALSE_CTOR)
     }
   }
 
@@ -161,7 +164,7 @@ export class Serializer {
     }
     // capitalized Vector needs put constructor
     if (vectorName === 'Vector') {
-      this.putInt(0x1cb5c415)
+      this.putInt(VECTOR_CTOR)
     }
     // put length
     this.putInt(objs.length)

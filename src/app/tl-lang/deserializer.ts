@@ -1,6 +1,9 @@
 import {Injectable} from '@angular/core'
 import {bytesToHex} from '../crypto'
-import {Schema, MethodData, ConstructorData} from './types'
+import {
+  Schema, MethodData, ConstructorData,
+  GZIP_CTOR, VECTOR_CTOR, TRUE_CTOR, FALSE_CTOR
+} from './types'
 
 const SUCCESS = true
 export const BASE_TYPES = {
@@ -112,10 +115,10 @@ export class Deserializer {
 
   getBool() {
     let bool = this.getInt()
-    if (bool === 0x997275b5) {
+    if (bool === TRUE_CTOR) {
       return true
     }
-    if (bool === 0xbc799737) {
+    if (bool === FALSE_CTOR) {
       return false
     }
     throw new TypeError('invalid bool value')
@@ -141,14 +144,14 @@ export class Deserializer {
     if (vectorName === 'Vector') {
       let constructorCmp = uintToInt(this.getInt())
       // gzip
-      if (constructorCmp === 0x3072cfa1) {
+      if (constructorCmp === GZIP_CTOR) {
         throw new TypeError('unsupported for now')
         // let compressed = this.getBytes()
         // let uncompressed = gzipUncompress(compressed)
         // let newDeserializer = new Deserializer(uncompressed)
         // return newDeserializer.getObject(type, field);
       }
-      if (constructorCmp !== 0x1cb5c415) {
+      if (constructorCmp !== VECTOR_CTOR) {
         throw new TypeError('invalid vector constructor')
       }
     }
@@ -171,13 +174,13 @@ export class Deserializer {
       // explicit bare type
       let checkType = type.substr(1)
       constructorData = _findCtorByPredicate(checkType, schema)
-    } else if (!isPrimitive(type)) {
+    } else if (isPrimitive(type)) {
       // primitive type like int128
       constructorData = _findCtorByPredicate(type, schema)
     } else {
       let constructor = this.getInt()
       let constructorCmp = uintToInt(constructor)
-      if (constructorCmp === 0x3072cfa1) {
+      if (constructorCmp === GZIP_CTOR) {
         throw new TypeError('unsupported for now')
         // let compressed = this.getBytes()
         // let uncompressed = gzipUncompress(compressed)
@@ -259,5 +262,5 @@ function _findCtorByPredicate(type: string, schema: Schema) {
 function isPrimitive(typeName: string) {
     //typeName example: auth.ResPQ
     typeName = typeName.slice(typeName.lastIndexOf('.') + 1);
-    return typeName.charAt(0) === typeName.charAt(0).toUpperCase();
+    return typeName.charAt(0) !== typeName.charAt(0).toUpperCase();
 }
